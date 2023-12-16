@@ -2,167 +2,190 @@
 DROP SCHEMA IF EXISTS court CASCADE;
      CREATE SCHEMA court;
 SET search_path = court, public;
+-- Таблица Meetings
 
--- Дела
-DROP TABLE IF EXISTS court.cases;
-CREATE TABLE court.cases (
-    case_id SERIAL PRIMARY KEY,
-    type_of_crime TEXT,
+-- Таблица Courtrooms
+CREATE TABLE court.Courtrooms (
+    room_no INTEGER PRIMARY KEY,
+    floor INTEGER NOT NULL CHECK (floor BETWEEN 1 AND 6),
+    capacity INTEGER NOT NULL CHECK (capacity > 0)
+);
+
+-- Таблица Cases
+CREATE TABLE court.Cases (
+    case_id INTEGER,
     article TEXT NOT NULL,
-    start_date DATE DEFAULT CURRENT_DATE NOT NULL
+    from_date DATE NOT NULL,
+    to_date DATE,
+    status TEXT,
+    CONSTRAINT pk_cases PRIMARY KEY (case_id, from_date),
+    CONSTRAINT chk_to_date CHECK (to_date IS NULL OR to_date >= from_date)
 );
 
-
--- Залы суда
-DROP TABLE IF EXISTS court.courtrooms;
-CREATE TABLE court.courtrooms (
-    room_no INTEGER PRIMARY KEY NOT NULL,
-    floor INTEGER CHECK (floor BETWEEN 1 AND 6) NOT NULL,
-    capacity INTEGER CHECK (capacity > 0) NOT NULL
-);
-
--- Заседания
-DROP TABLE IF EXISTS court.meetings;
-CREATE TABLE court.meetings (
-    meeting_no SERIAL PRIMARY KEY,
-    room_no INTEGER REFERENCES court.courtrooms(room_no) NOT NULL,
-    case_id INTEGER REFERENCES court.cases(case_id) NOT NULL,
+CREATE TABLE court.Meetings (
+    meeting_no INTEGER PRIMARY KEY,
+    room_no INTEGER NOT NULL,
+    case_id INTEGER NOT NULL,
     meeting_date DATE NOT NULL,
     meeting_time TIME NOT NULL,
     court_decision TEXT NOT NULL,
-    CONSTRAINT unique_meeting_no UNIQUE (meeting_no)
+    --CONSTRAINT pk_meetings PRIMARY KEY (meeting_no),
+    CONSTRAINT fk_meetings_room FOREIGN KEY (room_no) REFERENCES court.Courtrooms(room_no),
+    CONSTRAINT fk_meetings_case FOREIGN KEY (case_id) REFERENCES court.Cases(case_id, from_date)
 );
 
-
-
--- Истцы
-DROP TABLE IF EXISTS court.plaintiffs;
-CREATE TABLE court.plaintiffs (
-    plaintiff_id SERIAL PRIMARY KEY,
-    first_name TEXT NOT NULL,
-    last_name TEXT NOT NULL,
-    home_address TEXT,
-    postal_code NUMERIC(6, 0),
-    phone_number VARCHAR(20) NOT NULL UNIQUE CHECK (phone_number ~ '^\\+?[0-9\\-\\s]+$')
-);
-
--- Присяжные
-DROP TABLE IF EXISTS court.jurors;
-CREATE TABLE court.jurors (
-    juror_id SERIAL PRIMARY KEY,
+-- Таблица People
+CREATE TABLE court.People (
+    taxpayer_id TEXT PRIMARY KEY,
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
     passport_series NUMERIC(4, 0) NOT NULL,
     passport_number NUMERIC(6, 0) NOT NULL,
-    phone_number VARCHAR(20) CHECK (phone_number ~ '^\\+?[0-9\\-\\s]+$')
-);
-
--- Присяжные на заседаниях
-DROP TABLE IF EXISTS court.jurors_x_meetings;
-CREATE TABLE court.jurors_x_meetings (
-    juror_id INTEGER REFERENCES court.jurors(juror_id) NOT NULL,
-    meeting_no INTEGER NOT NULL REFERENCES court.cases(case_id),
-    PRIMARY KEY (juror_id, meeting_no)
-);
-
--- Юристы
-DROP TABLE IF EXISTS court.lawyers;
-CREATE TABLE court.lawyers (
-    lawyer_id SERIAL PRIMARY KEY,
-    first_name TEXT NOT NULL,
-    last_name TEXT NOT NULL,
-    post TEXT CHECK (post IN ('Судья', 'Адвокат', 'Прокурор')) NOT NULL
-);
-
--- Юристы на заседаниях
-DROP TABLE IF EXISTS court.lawyers_x_meetings;
-CREATE TABLE court.lawyers_x_meetings (
-    lawyer_id INTEGER REFERENCES court.lawyers(lawyer_id) NOT NULL,
-    meeting_no INTEGER REFERENCES court.cases(case_id) NOT NULL,
-    PRIMARY KEY (lawyer_id, meeting_no)
+    birth_date DATE,
+    phone_number VARCHAR(20) CHECK (phone_number ~ '^((8|\+7)[\- ]?)?(\(?\d{3}\)?[\- ]?)?[\d\- ]{7,10}$'),
+    home_address TEXT,
+    CONSTRAINT chk_birth_date CHECK (birth_date IS NULL OR birth_date <= CURRENT_DATE)
 );
 
 
--- Подсудимые
-DROP TABLE IF EXISTS court.defendants;
-CREATE TABLE court.defendants (
-    defendant_id SERIAL PRIMARY KEY,
-    first_name TEXT NOT NULL,
-    last_name TEXT NOT NULL,
-    passport_series NUMERIC(4, 0),
-    passport_number NUMERIC(6, 0),
-    birth_date DATE
+
+-- Таблица Roles
+CREATE TABLE court.Roles (
+    taxpayer_id TEXT NOT NULL,
+    case_id INTEGER NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('Судья', 'Адвокат истца', 'Прокурор', 'Адвокат подсудимого', 'Присяжный', 'Подсудимый', 'Истец')),
+    CONSTRAINT pk_roles PRIMARY KEY (taxpayer_id, case_id),
+    CONSTRAINT fk_roles_taxpayer FOREIGN KEY (taxpayer_id) REFERENCES court.People(taxpayer_id),
+    CONSTRAINT fk_roles_case FOREIGN KEY (case_id) REFERENCES court.Cases(case_id)
 );
 
--- Дела с подсудимыми
-DROP TABLE IF EXISTS cases_x_defendants;
-CREATE TABLE court.cases_x_defendants (
-    case_id INTEGER REFERENCES court.cases(case_id) NOT NULL,
-    defendant_id INTEGER REFERENCES court.defendants(defendant_id) NOT NULL,
-    PRIMARY KEY (case_id, defendant_id)
+-- Таблица Companies
+CREATE TABLE court.Companies (
+    taxpayer_id TEXT PRIMARY KEY,
+    name_of_comp TEXT NOT NULL,
+    email TEXT NOT NULL,
+    legal_address TEXT NOT NULL
 );
 
--- Дела с истцами
-DROP TABLE IF EXISTS court.cases_x_plaintiffs;
-CREATE TABLE court.cases_x_plaintiffs (
-    case_id INTEGER REFERENCES court.cases(case_id) NOT NULL,
-    plaintiff_id INTEGER REFERENCES court.plaintiffs(plaintiff_id) NOT NULL,
-    PRIMARY KEY (case_id, plaintiff_id)
+
+
+-- Таблица Docs
+CREATE TABLE court.Docs (
+    doc_id INTEGER PRIMARY KEY,
+    case_id INTEGER NOT NULL,
+    date DATE,
+    type TEXT NOT NULL,
+    CONSTRAINT fk_docs_case FOREIGN KEY (case_id) REFERENCES court.Cases(case_id)
 );
 
-ALTER TABLE court.meetings
---ADD CONSTRAINT pk_meetings PRIMARY KEY (meeting_no),
-ADD CONSTRAINT fk_meetings_room FOREIGN KEY (room_no) REFERENCES court.courtrooms(room_no),
-ADD CONSTRAINT fk_meetings_case FOREIGN KEY (case_id) REFERENCES court.cases(case_id);
+-- Вставим данные
+INSERT INTO court.Courtrooms (room_no, floor, capacity) VALUES
+(1, 1, 50),
+(2, 1, 30),
+(3, 2, 40),
+(4, 2, 25),
+(5, 3, 35);
 
--- Ограничения для таблицы Plaintiffs
---ALTER TABLE court.plaintiffs
---ADD CONSTRAINT pk_plaintiffs PRIMARY KEY (plaintiff_id);
+-- все совпадения с реальными людьми случайны
+INSERT INTO court.People (taxpayer_id, first_name, last_name, passport_series, passport_number, birth_date, phone_number, home_address) VALUES
+('123456789075', 'Аяз', 'Шабутдинов', 1234, 567890, '1990-01-01', '+79123456789', 'г. Санкт-Петербург, ул. Пушкина, д.1'),
+('987654321023', 'Алексей', 'Овальный', 5678, 123456, '1985-05-15', '+79234567890', 'г. Санкт-Петербург, ул. Ломоносова, д.5'),
+('112233445588', 'Дональд', 'Трамп', 9999, 987654, '1978-10-20', '+79011223344', 'г. Санкт-Петербург, ул. Кирова, д.10'),
+('123456234098', 'Юлия', 'Блинковская', 1200, 562290, '1990-03-01', '+79129956789', 'г. Санкт-Петербург, ул. Пятничная, д.13'),
+('287651121033', 'Владимир', 'Утин', 5644, 123836, '1949-05-19', '+79266567890', 'г. Санкт-Петербург, ул. Кремлевская, д.1'),
+('987651667784', 'Фрэнк', 'Каупервуд', 5908, 120346, '1965-07-19', '+79266997890', 'г. Санкт-Петербург, ул. Мегадорогая, д.111'),
+('987651111144', 'Эркюль', 'Пуаро', 3608, 125546, '1980-10-14', '+79266997777', 'г. Санкт-Петербург, Морской пр., д.77'),
+('987654993364', 'Евгений', 'Сафроненко', 5623, 120056, '1995-09-15', '+79494567890', 'г. Санкт-Петербург, Московский пр., д.5'),
+('123456234056', 'Александр', 'Храбров', 3600, 567770, '1980-10-10', '+79129966666', 'г. Санкт-Петербург, ул. Веселая, д.3'),
+('112233445554', 'Ольга', 'Симарова', 6699, 557655, '1994-12-29', '+79008893344', 'г. Санкт-Петербург, ул. Кирова, д.10'),
+('112233000058', 'Агата', 'Кристи', 1111, 586754, '1968-06-28', '+79221223349', 'г. Санкт-Петербург, ул. Адмирала Неймана, д.108'),
+('112233446613', 'Сол', 'Гудман', 9911, 984654, '1978-09-20', '+79011222844', 'г. Санкт-Петербург, ул. Буша, д.228');
 
--- Ограничения для таблицы Cases
---ALTER TABLE court.cases
---ADD CONSTRAINT pk_cases PRIMARY KEY (case_id);
+INSERT INTO court.Cases (case_id, article, from_date, to_date, status) VALUES
+(1, '228 УК', '2023-01-01', '2023-02-01', 'Вынесен акт'),
+(4, '227 УК', '2023-04-01', NULL, 'На рассмотрении'),
+(10, '123 УК', '2023-03-05', '2023-04-05', 'На рассмотрении'),
+(10, '123 УК', '2023-04-05', NULL, 'Возвращено отправителю'),
+(2, '337 КоАП', '2023-02-01', '2023-02-23', 'На рассмотрении'),
+(2, '337 КоАП', '2023-02-23', NULL, 'Назначено заседание'),
+(1, '228 УК', '2023-02-01', NULL, 'Обжалуется');
 
--- Ограничения для таблицы Jurors
---ALTER TABLE court.jurors
---ADD CONSTRAINT pk_jurors PRIMARY KEY (juror_id);
+INSERT INTO court.Companies (taxpayer_id, name_of_comp, email, legal_address) VALUES
+('5555555555', 'ООО "Трио"', 'info@legalfirm.com', 'г. Санкт-Петербург, ул. Лесная, д.20'),
+('6666666666', 'ЗАО "Зеленоглазое такси"', 'info@accounting.com', 'г. Санкт-Петербург, пр. Невский, д.15');
+-- TODO добавить компании (ИНН 10 ЦИФР!!!)
 
--- Ограничения для таблицы Jurors_X_Meetings
-ALTER TABLE court.jurors_x_meetings
---ADD CONSTRAINT pk_jurors_x_meetings PRIMARY KEY (juror_id, meeting_no),
-ADD CONSTRAINT fk_jurors_x_meetings_juror FOREIGN KEY (juror_id) REFERENCES court.jurors(juror_id),
-ADD CONSTRAINT fk_jurors_x_meetings_meeting FOREIGN KEY (meeting_no) REFERENCES court.cases(case_id);
+INSERT INTO court.Roles (taxpayer_id, case_id, role) VALUES
+('287651121033', 1, 'Судья'),
+('987654321023', 1, 'Подсудимый'),
+('987651111144', 1, 'Адвокат истца'),
+('112233446613', 1, 'Адвокат'),
+('123456234056', 1, 'Истец'),
+('5555555555', 4, 'Подсудимый'),
+('287651121033', 4, 'Судья'),
+('123456234056', 4, 'Истец'),
+('987654993364', 4, 'Истец'),
+('112233445554', 4, 'Прокурор'),
+('112233000058', 10, 'Судья'),
+('123456789075', 10, 'Истец'),
+('112233445588', 2, 'Подсудимый'),
+('123456234098', 2, 'Присяжный'),
+('987651667784', 2, 'Присяжный'),
+('6666666666', 2, 'Истец'),
+('987651111144', 2, 'Судья'),
+('112233446613', 2, 'Адвокат истца');
 
--- Ограничения для таблицы Lawyers
---ALTER TABLE court.lawyers
---ADD CONSTRAINT pk_lawyers PRIMARY KEY (lawyer_id);
 
--- Ограничения для таблицы Lawyers_X_Meetings
-ALTER TABLE court.lawyers_x_meetings
---ADD CONSTRAINT pk_lawyers_x_meetings PRIMARY KEY (lawyer_id, meeting_no),
-ADD CONSTRAINT fk_lawyers_x_meetings_lawyer FOREIGN KEY (lawyer_id) REFERENCES court.lawyers(lawyer_id),
-ADD CONSTRAINT fk_lawyers_x_meetings_meeting FOREIGN KEY (meeting_no) REFERENCES court.cases(case_id);
 
--- Ограничения для таблицы Courtrooms
---ALTER TABLE court.courtrooms
---ADD CONSTRAINT pk_courtrooms PRIMARY KEY (room_no);
+INSERT INTO court.Meetings (meeting_no, room_no, case_id, meeting_date, meeting_time, court_decision) VALUES
+(1, 1, 1, '2023-01-15', '10:00', 'TODO'),
+(2, 2, 2, '2023-02-20', '14:30', 'TODO'),
+(3, 3, 3, '2023-03-25', '11:00', 'TODO');
 
--- Ограничения для таблицы Cases_X_Defendants
-ALTER TABLE court.cases_x_defendants
---ADD CONSTRAINT pk_cases_x_defendants PRIMARY KEY (case_id, defendant_id),
-ADD CONSTRAINT fk_cases_x_defendants_case FOREIGN KEY (case_id) REFERENCES court.cases(case_id),
-ADD CONSTRAINT fk_cases_x_defendants_defendant FOREIGN KEY (defendant_id) REFERENCES court.defendants(defendant_id);
+INSERT INTO court.Docs (doc_id, case_id, date, type) VALUES
+(1, 1, '2023-01-10', 'Ходатайство'),
+(2, 2, '2023-02-15', 'Справка'),
+(3, 3, '2023-03-20', 'Заключение');
 
--- Ограничения для таблицы Cases_X_Plaintiffs
-ALTER TABLE court.cases_x_plaintiffs
---ADD CONSTRAINT pk_cases_x_plaintiffs PRIMARY KEY (case_id, plaintiff_id),
-ADD CONSTRAINT fk_cases_x_plaintiffs_case FOREIGN KEY (case_id) REFERENCES court.cases(case_id),
-ADD CONSTRAINT fk_cases_x_plaintiffs_plaintiff FOREIGN KEY (plaintiff_id) REFERENCES court.plaintiffs(plaintiff_id);
 
--- Ограничения для таблицы Defendants
---ALTER TABLE court.defendants
---ADD CONSTRAINT pk_defendants PRIMARY KEY (defendant_id);
+-- CRUDы
+INSERT INTO court.Meetings (meeting_no, room_no, case_id, meeting_date, meeting_time, court_decision)
+VALUES (4, 4, 1, '2023-04-05', '09:00', 'TODO');
 
-insert into lawyers (lawyer_id, first_name, last_name, post)
-values (5, 'Илья', 'Петров', 'Судья');
-select * from lawyers;
+SELECT * FROM court.Meetings;
+
+UPDATE court.Meetings
+SET court_decision = 'Принято решение'
+WHERE meeting_no = 4;
+
+DELETE FROM court.Companies
+WHERE taxpayer_id = '5555555555';
+
+-- Смысловые запросы
+
+-- 1) список заседаний и соответствующих им дел с судьей
+SELECT Meetings.meeting_no, Meetings.meeting_date, Meetings.meeting_time, People.first_name AS judge_first_name, People.last_name AS judge_last_name
+FROM court.Meetings
+JOIN court.Roles ON Meetings.case_id = Roles.case_id AND Roles.role = 'Судья'
+JOIN court.People ON Roles.taxpayer_id = People.taxpayer_id;
+
+-- 2) список компаний и количество дел, в которых они участвуют
+SELECT Companies.name_of_comp, COUNT(DISTINCT Roles.case_id) AS case_count
+FROM court.Companies
+LEFT JOIN court.Roles ON Companies.taxpayer_id = Roles.taxpayer_id
+GROUP BY Companies.name_of_comp;
+
+
+-- 3) средний возраст всех участников дел
+SELECT AVG(EXTRACT(YEAR FROM age(CURRENT_DATE, birth_date))) AS average_age
+FROM court.People;
+
+-- 4) топ-3 залов с наибольшей вместимостью
+SELECT room_no, capacity
+FROM court.Courtrooms
+ORDER BY capacity DESC
+LIMIT 3;
+
+
+
+
