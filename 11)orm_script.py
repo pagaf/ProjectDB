@@ -112,4 +112,4 @@ for lawyer in (
     .group_by(People.taxpayer_id)
     .order_by(fn.count(People.taxpayer_id).desc())
 ):
-    print(lawyer.first_name, lawyer.last_name, lawyer.cases_amount)
+    print(f"Адвокат {lawyer.first_name} {lawyer.last_name} принял участие в {lawyer.cases_amount} делах")
