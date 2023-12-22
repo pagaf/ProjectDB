@@ -56,8 +56,7 @@ SELECT
     room_no,
     case_id,
     meeting_date,
-    meeting_time,
-    court_decision
+    meeting_time
 FROM court.Meetings;
 
 --7) Представление для таблицы Docs
