@@ -38,7 +38,7 @@ SELECT
 FROM court.Cases;
 
 --6) Представление для таблицы Meetings
-CREATE OR REPLACE VIEW meetings_vies AS
+CREATE OR REPLACE VIEW meetings_view AS
 SELECT
     meeting_no,
     room_no,
