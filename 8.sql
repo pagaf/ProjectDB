@@ -33,6 +33,7 @@ select * from defentants_and_decisions;
 
 
 --3) Статистика использования судебных залов
+CREATE OR REPLACE VIEW courtrooms_stats AS
 SELECT
     cr.room_no,
     COUNT(m.meeting_no) AS total_meetings,
