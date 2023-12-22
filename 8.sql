@@ -1,4 +1,4 @@
---1)Сводная таблица по документам с информацией о типе документа и связанном деле
+-- 1) Сводная таблица по документам с информацией о типе документа и связанном деле
 CREATE OR REPLACE VIEW docs_summary AS
 SELECT
     d.doc_id,
@@ -6,15 +6,13 @@ SELECT
     d.date AS doc_date,
     c.case_id,
     c.article,
-    c.from_date AS case_start_date,
-    c.to_date AS case_end_date,
     c.status AS case_status
 FROM
     court.Docs d
 JOIN court.Cases c ON d.case_id = c.case_id;
 
---2)Представление, которое для каждого из подсудимых из таблицы Roles показывает решение по его делу
 
+-- 2) Представление, которое для каждого из подсудимых из таблицы Roles показывает решение по его делу
 CREATE OR REPLACE VIEW defentants_and_decisions AS
 SELECT
     r.taxpayer_id,
@@ -31,7 +29,10 @@ WHERE
 GROUP BY
     r.taxpayer_id, c.case_id;
 
---3)Статистика использования судебных залов
+select * from defentants_and_decisions;
+
+
+--3) Статистика использования судебных залов
 SELECT
     cr.room_no,
     COUNT(m.meeting_no) AS total_meetings,
