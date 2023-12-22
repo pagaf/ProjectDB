@@ -113,3 +113,13 @@ for lawyer in (
     .order_by(fn.count(People.taxpayer_id).desc())
 ):
     print(f"Адвокат {lawyer.first_name} {lawyer.last_name} принял участие в {lawyer.cases_amount} делах")
+
+    
+# Для каждого тип документа выведем кол-во его использований в суде
+
+for doc in (
+    Docs.select(Docs.type , fn.count(Docs.type).alias('doc'))
+    .group_by(Docs.type)
+    .order_by(fn.count(Docs.type).desc())
+):
+    print(f'Документ типа "{doc.type}" появлялся в суде {doc.doc} раз')
